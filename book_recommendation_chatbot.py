@@ -41,8 +41,6 @@ try:
     model = AutoModelForCausalLM.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 except Exception as e:
-    st.error(f"모델 로드 중 오류가 발생했습니다: {e}")
-    st.info("대체 모델 로드 중...")
     model_name = "google/gemma-2b-it"
     try:
         model = AutoModelForCausalLM.from_pretrained(model_name)
