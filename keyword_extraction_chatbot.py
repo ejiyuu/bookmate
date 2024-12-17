@@ -83,7 +83,7 @@ if __name__ == "__main__":
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Hugging Face Hub에 업로드된 모델 이름
-model_name = "haramjang/gemma-2b-it-chatKeyword"
+model_name = "google/gemma-2-2b-it"
 
 # 모델과 토크나이저 로드
 model = AutoModelForCausalLM.from_pretrained(model_name)
