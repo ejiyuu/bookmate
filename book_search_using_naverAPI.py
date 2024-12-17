@@ -1,5 +1,4 @@
 import requests
-import re
 import os  # 환경 변수 사용
 from bs4 import BeautifulSoup
 
@@ -51,9 +50,9 @@ def filter_books(books, keywords):
 
 # 실행 예제
 if __name__ == "__main__":
-    # API 키를 환경 변수에서 가져오기
-    client_id = os.environ.get("NAVER_API_CLIENT_ID")
-    client_secret = os.environ.get("NAVER_API_CLIENT_SECRET")
+    # NAVER API 키를 환경 변수에서 가져오기
+    client_id = os.getenv("NAVER_API_CLIENT_ID")
+    client_secret = os.getenv("NAVER_API_CLIENT_SECRET")
 
     if not client_id or not client_secret:
         print("API 키가 설정되지 않았습니다. 환경 변수를 확인해 주세요.")

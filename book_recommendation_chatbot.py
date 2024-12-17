@@ -1,38 +1,66 @@
 import streamlit as st
+import importlib.util
+import os
+import subprocess
 
-# 페이지 설정
-st.set_page_config(page_title="북메이트 📚", page_icon="📚", layout="centered")
+# 파일 경로 설정
+CHATBOT_SCRIPT = "./keyword_extraction_chatbot.ipynb"
+BOOK_SEARCH_SCRIPT = "./book_search_using_naverAPI.py"
 
-# 앱 제목과 설명
-st.title("📚 북메이트 - 책 추천 챗봇")
-st.write("**당신의 취향에 맞는 책을 추천해드려요!** 원하는 책 장르나 주제를 알려주세요. 제가 맞춤형 책을 추천해 드릴게요!")
+# .ipynb 파일을 .py로 변환
+def convert_notebook_to_script(notebook_path):
+    converted_path = notebook_path.replace(".ipynb", ".py")
+    if not os.path.exists(converted_path):
+        subprocess.run(["jupyter", "nbconvert", "--to", "script", notebook_path])
+    return converted_path
 
-# 대화 기록 저장
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "안녕하세요! 어떤 책을 찾고 계신가요? 예: '재미있는 소설', '자기계발서' 등"}]
+# 파이썬 스크립트 동적 로드
+def load_script(script_path):
+    spec = importlib.util.spec_from_file_location("module_name", script_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-# 이전 대화 화면에 표시
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+def main():
+    st.title("📚 키워드 기반 책 추천 챗봇")
+    st.write("대화를 통해 키워드를 추출하고, 해당 키워드에 기반한 책을 추천해 드립니다!")
 
-# 사용자 입력 받기
-if prompt := st.chat_input("책에 대해 무엇이든 물어보세요!"):
-    # 사용자 메시지 저장 및 화면에 표시
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    # .ipynb 변환 후 스크립트 로드
+    chatbot_script_path = convert_notebook_to_script(CHATBOT_SCRIPT)
+    chatbot_module = load_script(chatbot_script_path)
+    book_search_module = load_script(BOOK_SEARCH_SCRIPT)
 
-    # --- 책 추천 모델 호출 부분 (여기만 교체하면 돼) ---
-    # 현재는 예시 결과를 반환하도록 구성
-    example_recommendations = [
-        "책1: 예시 도서 1",
-        "책2: 예시 도서 2",
-        "책3: 예시 도서 3"
-    ]
-    response = f"이런 책들은 어떠세요?\n\n" + "\n".join([f"- {book}" for book in example_recommendations])
+    # API 키 로드
+    NAVER_API_CLIENT_ID = os.getenv("NAVER_API_CLIENT_ID")
+    NAVER_API_CLIENT_SECRET = os.getenv("NAVER_API_CLIENT_SECRET")
 
-    # 챗봇 응답 저장 및 화면에 표시
-    with st.chat_message("assistant"):
-        st.markdown(response)
-    st.session_state.messages.append({"role": "assistant", "content": response})
+    # 사용자 입력 받기
+    st.header("🗣 대화 시작")
+    user_input = st.text_input("대화 메시지를 입력하세요:")
+    if user_input:
+        with st.spinner("키워드 추출 중..."):
+            # 키워드 추출
+            extracted_keywords = chatbot_module.wrapper_generate(
+                chatbot_module.tokenizer, 
+                chatbot_module.model, 
+                chatbot_module.function_prepare_sample_text(chatbot_module.tokenizer, for_train=False)({'input': user_input})
+            )
+            st.text_area("📋 추출된 키워드:", extracted_keywords)
+
+        # 책 추천
+        st.header("📖 추천 도서")
+        keywords = [kw.strip() for kw in extracted_keywords.split(",") if kw.strip()]
+        if keywords:
+            books = book_search_module.search_books_naver(NAVER_API_CLIENT_ID, NAVER_API_CLIENT_SECRET, keywords)
+            if books:
+                for idx, book in enumerate(books[:4]):
+                    st.subheader(f"{idx + 1}. {book['title']}")
+                    st.write(f"**저자**: {book['author']}")
+                    st.write(f"**설명**: {book['description']}")
+            else:
+                st.warning("추천할 도서를 찾지 못했습니다. 😥")
+        else:
+            st.warning("키워드가 추출되지 않았습니다.")
+
+if __name__ == "__main__":
+    main()
